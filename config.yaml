@@ -1,0 +1,133 @@
+# ============================================================================
+#  job-apply-agent — everything you'd want to tune lives here.
+#  Defaults were inferred from your master resume; edit freely.
+# ============================================================================
+
+profile:
+  # Path to your master resume. This is the single source of truth for facts —
+  # the agent will never claim anything that isn't traceable back to this file.
+  master_resume: "data/master_resume.docx"
+  # Cached structured parse of the above. Delete it to force a re-parse.
+  profile_cache: "data/profile.json"
+
+search:
+  # Titles to search for. Keep these close to what job boards actually call the role.
+  titles:
+    - "Software Developer"
+    - "Software Engineer"
+    - "Full Stack Developer"
+    - "Backend Developer"
+    - "Frontend Developer"
+    - "AI Engineer"
+    - "Machine Learning Engineer"
+    - "Software Engineer Intern"
+
+  # Free-text keywords OR'd into queries on sources that support them.
+  keywords:
+    - "React"
+    - "Node.js"
+    - "Python"
+    - "Flask"
+    - "Computer Vision"
+    - "LangChain"
+
+  locations:
+    - "Pune"
+    - "Bengaluru"
+    - "Mumbai"
+    - "Hyderabad"
+    - "Remote"
+
+  country: "in"          # ISO-2, used by Adzuna
+  include_remote: true
+  max_age_days: 14       # ignore postings older than this
+  max_jobs_per_source: 10
+
+  # Hard filters applied before any LLM call (cheap, deterministic).
+  exclude_title_keywords:
+    - "senior"
+    - "staff"
+    - "principal"
+    - "lead "
+    - "manager"
+    - "director"
+    - "architect"
+    - "head of"
+  # Max years of experience a posting may demand. Postings asking for more are
+  # dropped — they can't reach 90 honestly and would waste tokens.
+  # A single whole number, not a range: 1 means "0 or 1 years is fine, 2+ is out".
+  max_years_experience_required: 1
+
+sources:
+  # --- No API key needed ---
+  remotive:   { enabled: true }
+  remoteok:   { enabled: true }
+  arbeitnow:  { enabled: true }
+
+  # Public company job boards. Every token below was verified live — add your
+  # own by taking the slug from the company's careers URL
+  # (job-boards.greenhouse.io/<token>, jobs.lever.co/<token>). A token that
+  # doesn't exist just 404s and is skipped, so a wrong guess is harmless.
+  greenhouse:
+    enabled: true
+    boards: [postman, gitlab, mongodb, stripe, databricks, anthropic, scaleai, figma]
+  lever:
+    enabled: true
+    boards: [meesho, plaid]
+
+  # --- API key needed (see .env) ---
+  adzuna:  { enabled: true }
+  jsearch: { enabled: true }
+
+  # --- Unofficial public endpoints ---
+  # These read public listing pages with no login and no stored credentials, but
+  # they are not sanctioned APIs: they can break without notice and may rate-limit
+  # or block your IP. Off by default — flip to true to use them.
+  #
+  # linkedin: verified working (~40 jobs/run through the logged-out guest search).
+  # naukri:   currently returns "recaptcha required" — the endpoint is gated and
+  #           the adapter will log that and return nothing. Left in place in case
+  #           the gate lifts. Use Adzuna for India coverage instead.
+  linkedin: { enabled: true,  rate_limit_seconds: 4.0 }
+  naukri:   { enabled: false, rate_limit_seconds: 3.0 }
+
+scoring:
+  # The bar the tailoring loop drives toward.
+  target_score: 90
+  # Only jobs scoring at least this (pre-tailoring, on the master resume) get
+  # spent LLM tokens. Raise it to be pickier, lower to cast a wider net.
+  min_prescreen_score: 45
+  # How many jobs to fully tailor per run (each costs ~4-6 Claude calls).
+  max_tailored_per_run: 5
+
+  # Weights for the deterministic ATS score (must sum to 1.0).
+  weights:
+    hard_skill_coverage: 0.40   # required skills present in the resume
+    keyword_coverage:    0.25   # weighted JD keyword presence
+    title_alignment:     0.15   # resume headline vs. job title
+    responsibility_match: 0.20  # experience bullets vs. JD responsibilities
+
+tailoring:
+  max_iterations: 4      # rewrite attempts before accepting the best score so far
+  # Truthfulness guard. Leave this on. With it off the model may invent
+  # experience to hit the target, which is how people get fired in week two.
+  verify_truthfulness: true
+  generate_cover_letter: false
+
+models:
+  resume_parse: "claude-opus-5"   # one-time, sets the quality ceiling for everything
+  jd_analysis:  "claude-haiku-4-5"
+  tailoring:    "claude-haiku-4-5"
+  verification: "claude-haiku-4-5"
+  
+  effort:
+    resume_parse: "medium"
+    jd_analysis:  "medium"
+    tailoring:    "high"
+    verification: "medium"
+
+output:
+  directory: "output"
+  formats: [docx, pdf]
+  html_report: true
+  open_report_after_run: false

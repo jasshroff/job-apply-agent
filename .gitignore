@@ -1,0 +1,10 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+output/
+data/*.db
+data/profile.json
+data/master_resume.*
+*.log
+.DS_Store
